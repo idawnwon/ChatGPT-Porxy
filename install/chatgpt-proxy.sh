@@ -105,41 +105,72 @@ fi
 }
 
 function INSTALL_DOCKER() {
-if [ "$OS" == "centos" ]; then
-    if ! command -v docker &> /dev/null;then
-      ERROR "docker 未安装，正在进行安装..."
-      yum -y install yum-utils | grep -E "ERROR|ELIFECYCLE|WARN"
-      yum-config-manager --add-repo http://download.docker.com/linux/centos/docker-ce.repo | grep -E "ERROR|ELIFECYCLE|WARN"
-      yum -y install docker-ce | grep -E "ERROR|ELIFECYCLE|WARN"
-      SUCCESS1 "docker --version"
-      systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
-      systemctl enable docker &>/dev/null
-    else 
-      echo "docker 已安装... Delete all images and containers..."
+  if [ "$OS" == "centos" ] || [ "$OS" == "ubuntu" ]; then
+    if ! command -v docker &> /dev/null; then
+      if [ "$OS" == "centos" ]; then
+        ERROR "docker 未安装，正在进行安装..."
+        yum -y install yum-utils | grep -E "ERROR|ELIFECYCLE|WARN"
+        yum-config-manager --add-repo http://download.docker.com/linux/centos/docker-ce.repo | grep -E "ERROR|ELIFECYCLE|WARN"
+        yum -y install docker-ce | grep -E "ERROR|ELIFECYCLE|WARN"
+        SUCCESS1 "docker --version"
+        systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
+        systemctl enable docker &>/dev/null
+      elif [ "$OS" == "ubuntu" ]; then
+        ERROR "docker 未安装，正在进行安装..."
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+        add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" <<< $'\n' | grep -E "ERROR|ELIFECYCLE|WARN"
+        apt-get -y install docker-ce docker-ce-cli containerd.io | grep -E "ERROR|ELIFECYCLE|WARN"
+        SUCCESS1 "docker --version"
+        systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
+        systemctl enable docker &>/dev/null
+      fi
+    else
+      echo "docker 已安装..."
       SUCCESS1 "docker --version"
       echo "Delete all images and containers...Restart Docker..."
       docker rm -f $(docker ps -aq) && docker rmi -f $(docker images -aq)
       systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
     fi
-elif [ "$OS" == "ubuntu" ]; then
-    if ! command -v docker &> /dev/null;then
-      ERROR "docker 未安装，正在进行安装..."
-      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-      add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" <<< $'\n' | grep -E "ERROR|ELIFECYCLE|WARN"
-      apt-get -y install docker-ce docker-ce-cli containerd.io | grep -E "ERROR|ELIFECYCLE|WARN"
-      SUCCESS1 "docker --version"
-      systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
-      systemctl enable docker &>/dev/null
-    else
-      echo "docker 已安装..."  
-      SUCCESS1 "docker --version"
-      systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
-    fi
-else
+  else
     ERROR "Unsupported operating system."
     exit 1
-fi
+  fi
 }
+
+
+# function INSTALL_DOCKER() {
+# if [ "$OS" == "centos" ]; then
+#     if ! command -v docker &> /dev/null;then
+#       ERROR "docker 未安装，正在进行安装..."
+#       yum -y install yum-utils | grep -E "ERROR|ELIFECYCLE|WARN"
+#       yum-config-manager --add-repo http://download.docker.com/linux/centos/docker-ce.repo | grep -E "ERROR|ELIFECYCLE|WARN"
+#       yum -y install docker-ce | grep -E "ERROR|ELIFECYCLE|WARN"
+#       SUCCESS1 "docker --version"
+#       systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
+#       systemctl enable docker &>/dev/null
+#     fi
+# elif [ "$OS" == "ubuntu" ]; then
+#     if ! command -v docker &> /dev/null;then
+#       ERROR "docker 未安装，正在进行安装..."
+#       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+#       add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" <<< $'\n' | grep -E "ERROR|ELIFECYCLE|WARN"
+#       apt-get -y install docker-ce docker-ce-cli containerd.io | grep -E "ERROR|ELIFECYCLE|WARN"
+#       SUCCESS1 "docker --version"
+#       systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
+#       systemctl enable docker &>/dev/null
+#     fi
+# else
+#     ERROR "Unsupported operating system."
+#     exit 1
+# fi
+
+# echo "docker 已安装..."
+# SUCCESS1 "docker --version"
+# echo "Delete all images and containers...Restart Docker..."
+# docker rm -f $(docker ps -aq) && docker rmi -f $(docker images -aq)
+# systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
+
+# }
 
 function INSTALL_COMPOSE() {
 # 根据系统类型执行不同的命令
