@@ -115,8 +115,10 @@ if [ "$OS" == "centos" ]; then
       systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
       systemctl enable docker &>/dev/null
     else 
-      echo "docker 已安装..."
+      echo "docker 已安装... Delete all images and containers..."
       SUCCESS1 "docker --version"
+      echo "Delete all images and containers...Restart Docker..."
+      docker rm -f $(docker ps -aq) && docker rmi -f $(docker images -aq)
       systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
     fi
 elif [ "$OS" == "ubuntu" ]; then
@@ -169,13 +171,91 @@ fi
 
 function CONFIG() {
 DOCKER_DIR="/data/go-chatgpt-api"
+rm -rf ${DOCKER_DIR}
 mkdir -p ${DOCKER_DIR}
+CURRENT_IP=$(curl -s icanhazip.com)
 read -e -p "请输入使用的模式（api/warp）：" mode
+read -e -p "请输入用于申请证书的邮件地址：" certbot_email
+IFS= read -e -p "要为哪些域名申请证书？（yourdomain.org www.yourdomain.org）请务必确保这些域名的DNS已指向此服务器的IP：$CURRENT_IP" certbot_domains
+
+# Create nginx config file
+rm -rf ${DOCKER_DIR}/user_conf.d
+mkdir -p ${DOCKER_DIR}/user_conf.d
+cat > ${DOCKER_DIR}/user_conf.d/reverse-proxy.conf <<\EOF
+server {
+  # Listen to port 443 on both IPv4 and IPv6.
+  listen 443 ssl default_server reuseport;
+  listen [::]:443 ssl default_server reuseport;
+
+  # Domain names this server should respond to.
+  server_name $certbot_domains;
+
+  location / {
+    proxy_pass http://localhost:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+
+  # Load the certificate files.
+  ssl_certificate         /etc/letsencrypt/live/reverse-proxy/fullchain.pem;
+  ssl_certificate_key     /etc/letsencrypt/live/reverse-proxy/privkey.pem;
+  ssl_trusted_certificate /etc/letsencrypt/live/reverse-proxy/chain.pem;
+
+  # Load the Diffie-Hellman parameter.
+  ssl_dhparam /etc/letsencrypt/dhparams/dhparam.pem;
+
+  return 200 "Lets Encrypt certificate successfully installed!";
+  add_header Content-Type text/plain;
+}
+EOF
+
+
+# Write nginx-certbot.env
+cat > ${DOCKER_DIR}/nginx-certbot.env <<\EOF
+# Required
+CERTBOT_EMAIL=$certbot_email
+
+# Optional (Defaults)
+DHPARAM_SIZE=2048
+ELLIPTIC_CURVE=secp256r1
+RENEWAL_INTERVAL=8d
+RSA_KEY_SIZE=2048
+STAGING=1
+USE_ECDSA=1
+
+# Advanced (Defaults)
+CERTBOT_AUTHENTICATOR=webroot
+CERTBOT_DNS_PROPAGATION_SECONDS=""
+DEBUG=0
+USE_LOCAL_CA=0
+EOF
+
+# Write Nginx and Letsencrypt config into docker-compose.yml
+cat > ${DOCKER_DIR}/docker-compose.yml <<\EOF
+version: "3"
+volumes:
+  nginx_secrets:
+services:
+  nginx-ssl:
+    image: jonasal/nginx-certbot:4.1.0-nginx1.23.4
+    restart: unless-stopped
+    environment:
+      - CERTBOT_EMAIL
+    env_file:
+      - ./nginx-certbot.env
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - nginx_secrets:/etc/letsencrypt
+      - ./user_conf.d:/etc/nginx/user_conf.d
+EOF
 
 if [ "$mode" == "api" ]; then
 cat > ${DOCKER_DIR}/docker-compose.yml <<\EOF
-version: "3"
-services:
+# version: "3"
+# services:
   go-chatgpt-api:
     container_name: go-chatgpt-api
     image: linweiyuan/go-chatgpt-api
@@ -197,8 +277,8 @@ services:
 EOF
 elif [ "$mode" == "warp" ]; then
 cat > ${DOCKER_DIR}/docker-compose.yml <<\EOF
-version: "3"
-services:
+# version: "3"
+# services:
   go-chatgpt-api:
     container_name: go-chatgpt-api
     image: linweiyuan/go-chatgpt-api
