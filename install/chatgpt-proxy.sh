@@ -207,12 +207,12 @@ mkdir -p ${DOCKER_DIR}
 CURRENT_IP=$(curl -s icanhazip.com)
 read -e -p "请输入使用的模式（api/warp）：" mode
 read -e -p "请输入用于申请证书的邮件地址：" certbot_email
-IFS= read -e -p "要为哪些域名申请证书？（yourdomain.org www.yourdomain.org）请务必确保这些域名的DNS已指向此服务器的IP：$CURRENT_IP" certbot_domains
+IFS= read -e -p "要为哪些域名申请证书？（yourdomain.org www.yourdomain.org）请务必确保这些域名的DNS已指向此服务器的IP：$CURRENT_IP：" certbot_domains
 
 # Create nginx config file
 rm -rf ${DOCKER_DIR}/user_conf.d
 mkdir -p ${DOCKER_DIR}/user_conf.d
-cat > ${DOCKER_DIR}/user_conf.d/reverse-proxy.conf <<\EOF
+cat > ${DOCKER_DIR}/user_conf.d/reverse-proxy.conf <<EOF
 server {
   # Listen to port 443 on both IPv4 and IPv6.
   listen 443 ssl default_server reuseport;
@@ -223,9 +223,9 @@ server {
 
   location / {
     proxy_pass http://localhost:8080;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   }
 
   # Load the certificate files.
@@ -243,7 +243,7 @@ EOF
 
 
 # Write nginx-certbot.env
-cat > ${DOCKER_DIR}/nginx-certbot.env <<\EOF
+cat > ${DOCKER_DIR}/nginx-certbot.env <<EOF
 # Required
 CERTBOT_EMAIL=$certbot_email
 
@@ -263,7 +263,7 @@ USE_LOCAL_CA=0
 EOF
 
 # Write Nginx and Letsencrypt config into docker-compose.yml
-cat > ${DOCKER_DIR}/docker-compose.yml <<\EOF
+cat >> ${DOCKER_DIR}/docker-compose.yml <<\EOF
 version: "3"
 volumes:
   nginx_secrets:
@@ -284,7 +284,7 @@ services:
 EOF
 
 if [ "$mode" == "api" ]; then
-cat > ${DOCKER_DIR}/docker-compose.yml <<\EOF
+cat >> ${DOCKER_DIR}/docker-compose.yml <<\EOF
 # version: "3"
 # services:
   go-chatgpt-api:
@@ -307,7 +307,7 @@ cat > ${DOCKER_DIR}/docker-compose.yml <<\EOF
     restart: unless-stopped
 EOF
 elif [ "$mode" == "warp" ]; then
-cat > ${DOCKER_DIR}/docker-compose.yml <<\EOF
+cat >> ${DOCKER_DIR}/docker-compose.yml <<\EOF
 # version: "3"
 # services:
   go-chatgpt-api:
