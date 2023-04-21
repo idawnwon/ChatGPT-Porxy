@@ -221,8 +221,8 @@ server {
   # Domain names this server should respond to.
   server_name $certbot_domains;
 
-  location / {
-    proxy_pass http://localhost:8080;
+  location /conversation {
+    proxy_pass http://go-chatgpt-api:8080/conversation;
     proxy_set_header Host \$host;
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -236,8 +236,8 @@ server {
   # Load the Diffie-Hellman parameter.
   ssl_dhparam /etc/letsencrypt/dhparams/dhparam.pem;
 
-  return 200 "Lets Encrypt certificate successfully installed!";
-  add_header Content-Type text/plain;
+  # return 200 "Lets Encrypt certificate successfully installed!";
+  # add_header Content-Type text/plain;
 }
 EOF
 
@@ -252,27 +252,29 @@ DHPARAM_SIZE=2048
 ELLIPTIC_CURVE=secp256r1
 RENEWAL_INTERVAL=8d
 RSA_KEY_SIZE=2048
-STAGING=1
+# STAGING=1
 USE_ECDSA=1
 
 # Advanced (Defaults)
 CERTBOT_AUTHENTICATOR=webroot
 CERTBOT_DNS_PROPAGATION_SECONDS=""
-DEBUG=0
+DEBUG=1
 USE_LOCAL_CA=0
 EOF
 
 # Write Nginx and Letsencrypt config into docker-compose.yml
 cat >> ${DOCKER_DIR}/docker-compose.yml <<\EOF
 version: "3"
+
 volumes:
   nginx_secrets:
+
 services:
   nginx-ssl:
     image: jonasal/nginx-certbot:4.1.0-nginx1.23.4
     restart: unless-stopped
-    environment:
-      - CERTBOT_EMAIL
+    # environment:
+    #   - CERTBOT_EMAIL
     env_file:
       - ./nginx-certbot.env
     ports:
@@ -281,6 +283,7 @@ services:
     volumes:
       - nginx_secrets:/etc/letsencrypt
       - ./user_conf.d:/etc/nginx/user_conf.d
+
 EOF
 
 if [ "$mode" == "api" ]; then
