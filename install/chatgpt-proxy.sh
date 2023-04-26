@@ -1,14 +1,5 @@
 #!/usr/bin/env bash
-#===============================================================================
-#
-#          FILE: chatgpt-proxy.sh
-#
-#         USAGE: ./chatgpt-proxy.sh
-#
-#   DESCRIPTION: 使用AccessToken访问ChatGPT，绕过CF验证;支持CentOS与Ubuntu
-#
-#  ORGANIZATION: DingQz dqzboy.com
-#===============================================================================
+
 SETCOLOR_SKYBLUE="echo -en \\E[1;36m"
 SETCOLOR_SUCCESS="echo -en \\E[0;32m"
 SETCOLOR_NORMAL="echo  -en \\E[0;39m"
@@ -18,12 +9,12 @@ SETCOLOR_YELLOW="echo -en \\E[1;33m"
 echo
 cat << EOF
 
-         ██████╗██╗  ██╗ █████╗ ████████╗ ██████╗ ██████╗ ████████╗    ██████╗ ██████╗  ██████╗ ██╗  ██╗██╗   ██╗
-        ██╔════╝██║  ██║██╔══██╗╚══██╔══╝██╔════╝ ██╔══██╗╚══██╔══╝    ██╔══██╗██╔══██╗██╔═══██╗╚██╗██╔╝╚██╗ ██╔╝
-        ██║     ███████║███████║   ██║   ██║  ███╗██████╔╝   ██║       ██████╔╝██████╔╝██║   ██║ ╚███╔╝  ╚████╔╝ 
-        ██║     ██╔══██║██╔══██║   ██║   ██║   ██║██╔═══╝    ██║       ██╔═══╝ ██╔══██╗██║   ██║ ██╔██╗   ╚██╔╝  
-        ╚██████╗██║  ██║██║  ██║   ██║   ╚██████╔╝██║        ██║       ██║     ██║  ██║╚██████╔╝██╔╝ ██╗   ██║   
-         ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝        ╚═╝       ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
+______________        _____________________________   ________                             
+__  ____/__  /_______ __  /__  ____/__  __ \__  __/   ___  __ \________________  ______  __
+_  /    __  __ \  __ `/  __/  / __ __  /_/ /_  /      __  /_/ /_  ___/  __ \_  |/_/_  / / /
+/ /___  _  / / / /_/ // /_ / /_/ / _  ____/_  /       _  ____/_  /   / /_/ /_>  < _  /_/ / 
+\____/  /_/ /_/\__,_/ \__/ \____/  /_/     /_/        /_/     /_/    \____//_/|_| _\__, /  
+                                                                                  /____/   
                                                                                                          
 EOF
 
@@ -47,37 +38,40 @@ WARN() {
   ${SETCOLOR_YELLOW} && echo " $1 "  && ${SETCOLOR_NORMAL}
 }
 
+# Function to check if the CPU architecture is supported by a script
 function CHECK_CPU() {
-# 判断当前操作系统是否为ARM架构
-if [[ "$(uname -m)" == "arm"* ]]; then
-    WARN "This script is not supported on ARM architecture. Exiting..."
-    exit 1
-fi
 
-# 如果不是ARM架构则会执行到这里
-WARN "This script is supported on this system. Continuing with other commands..."
+    # If the system is running on ARM architecture, exit with an error message
+    if [[ "$(uname -m)" == "arm"* ]]; then
+        WARN "This script is not supported on ARM architecture. Exiting..."
+        exit 1
+    fi
+
+    # If the system is running on another architecture, continue executing other commands in the script
+    WARN "This script is supported on this system. Continuing with other commands..."
 }
 
-text="检测服务器是否能够访问chat.openai.com"
-width=75
-padding=$((($width - ${#text}) / 2))
+
 
 
 function CHECK_OPENAI() {
-SUCCESS "提示"
-printf "%*s\033[31m%s\033[0m%*s\n" $padding "" "$text" $padding ""
-SUCCESS "END"
+  text="Check if this server could access chat.openai.com"
+  width=75
+  padding=$((($width - ${#text}) / 2))
+  url="https://chat.openai.com"
 
-url="https://chat.openai.com"
+  SUCCESS "INFO"
+  printf "%*s\033[31m%s\033[0m%*s\n" $padding "" "$text" $padding ""
+  SUCCESS "END"
 
-# 检测是否能够访问chat.openai.com
+  # Check if this server could access chat.openai.com
 echo "Testing connection to ${url}..."
-if curl --output /dev/null --silent --head --fail "${url}"; then
+if curl -sSf "${url}" > /dev/null; then
   echo "Connection successful!"
   URL="OK"
 else
   echo "Could not connect to ${url}."
-  INFO "强制安装"
+  INFO "FORCE INSTALL"
   read -e -p "Do you want to force install dependencies? (y/n)：" force_install
 fi
 }
@@ -85,13 +79,13 @@ fi
 
 function CHECK_OS() {
 if [ -f /etc/redhat-release ]; then
-    SUCCESS "系统环境检测中，请稍等..."
-    INFO "《This is CentOS.》"
+    SUCCESS "Checking OS version, please wait..."
+    INFO "This is CentOS."
     OS="centos"
 elif [ -f /etc/lsb-release ]; then
     if grep -q "DISTRIB_ID=Ubuntu" /etc/lsb-release; then
-        SUCCESS "系统环境检测中，请稍等..."
-        INFO "《This is Ubuntu.》"
+        SUCCESS "Checking OS version, please wait..."
+        INFO "This is Ubuntu."
         OS="ubuntu"
         systemctl restart systemd-resolved
     else
@@ -108,7 +102,7 @@ function INSTALL_DOCKER() {
   if [ "$OS" == "centos" ] || [ "$OS" == "ubuntu" ]; then
     if ! command -v docker &> /dev/null; then
       if [ "$OS" == "centos" ]; then
-        ERROR "docker 未安装，正在进行安装..."
+        ERROR "docker not installed，installing..."
         yum -y install yum-utils | grep -E "ERROR|ELIFECYCLE|WARN"
         yum-config-manager --add-repo http://download.docker.com/linux/centos/docker-ce.repo | grep -E "ERROR|ELIFECYCLE|WARN"
         yum -y install docker-ce | grep -E "ERROR|ELIFECYCLE|WARN"
@@ -116,7 +110,7 @@ function INSTALL_DOCKER() {
         systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
         systemctl enable docker &>/dev/null
       elif [ "$OS" == "ubuntu" ]; then
-        ERROR "docker 未安装，正在进行安装..."
+        ERROR "docker not installed，installing..."
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
         add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" <<< $'\n' | grep -E "ERROR|ELIFECYCLE|WARN"
         apt-get -y install docker-ce docker-ce-cli containerd.io | grep -E "ERROR|ELIFECYCLE|WARN"
@@ -125,8 +119,8 @@ function INSTALL_DOCKER() {
         systemctl enable docker &>/dev/null
       fi
     else
-      echo "docker 已安装..."
-      SUCCESS1 "docker --version"
+      echo "docker installed..."
+      SUCCESS1 "$(docker --version)"
       echo "Delete all images and containers...Restart Docker..."
       docker rm -f $(docker ps -aq) && docker rmi -f $(docker images -aq)
       systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
@@ -138,67 +132,34 @@ function INSTALL_DOCKER() {
 }
 
 
-# function INSTALL_DOCKER() {
-# if [ "$OS" == "centos" ]; then
-#     if ! command -v docker &> /dev/null;then
-#       ERROR "docker 未安装，正在进行安装..."
-#       yum -y install yum-utils | grep -E "ERROR|ELIFECYCLE|WARN"
-#       yum-config-manager --add-repo http://download.docker.com/linux/centos/docker-ce.repo | grep -E "ERROR|ELIFECYCLE|WARN"
-#       yum -y install docker-ce | grep -E "ERROR|ELIFECYCLE|WARN"
-#       SUCCESS1 "docker --version"
-#       systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
-#       systemctl enable docker &>/dev/null
-#     fi
-# elif [ "$OS" == "ubuntu" ]; then
-#     if ! command -v docker &> /dev/null;then
-#       ERROR "docker 未安装，正在进行安装..."
-#       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-#       add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" <<< $'\n' | grep -E "ERROR|ELIFECYCLE|WARN"
-#       apt-get -y install docker-ce docker-ce-cli containerd.io | grep -E "ERROR|ELIFECYCLE|WARN"
-#       SUCCESS1 "docker --version"
-#       systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
-#       systemctl enable docker &>/dev/null
-#     fi
-# else
-#     ERROR "Unsupported operating system."
-#     exit 1
-# fi
-
-# echo "docker 已安装..."
-# SUCCESS1 "docker --version"
-# echo "Delete all images and containers...Restart Docker..."
-# docker rm -f $(docker ps -aq) && docker rmi -f $(docker images -aq)
-# systemctl restart docker | grep -E "ERROR|ELIFECYCLE|WARN"
-
-# }
-
 function INSTALL_COMPOSE() {
-# 根据系统类型执行不同的命令
+# Execute different commands based on the system type
 if [ "$OS" == "centos" ]; then
    if ! command -v docker-compose &> /dev/null;then
-      ERROR "docker-compose 未安装，正在进行安装..."
+      ERROR "docker-compose is not installed. Installing..."
       curl -sL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-`uname -s`-`uname -m` -o /usr/bin/docker-compose | grep -E "ERROR|ELIFECYCLE|WARN"
       chmod +x /usr/bin/docker-compose
-      SUCCESS1 "docker-compose --version"
+      SUCCESS1 "$(docker-compose --version)"
     else
-      echo "docker-compose 已安装..."  
-      SUCCESS1 "docker-compose --version"
+      echo "docker-compose is already installed."  
+      SUCCESS1 "$(docker-compose --version)"
     fi
 elif [ "$OS" == "ubuntu" ]; then
     if ! command -v docker-compose &> /dev/null;then
-       ERROR "docker-compose 未安装，正在进行安装..."
+       ERROR "docker-compose is not installed. Installing..."
        curl -sL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-`uname -s`-`uname -m` -o /usr/bin/docker-compose | grep -E "ERROR|ELIFECYCLE|WARN"
        chmod +x /usr/bin/docker-compose
-       SUCCESS1 "docker-compose --version"
+       SUCCESS1 "$(docker-compose --version)"
     else
-      echo "docker-compose 已安装..."  
-      SUCCESS1 "docker-compose --version" 
+      echo "docker-compose is already installed."  
+      SUCCESS1 "$(docker-compose --version)" 
     fi
 else
     ERROR "Unsupported operating system."
     exit 1
 fi
 }
+
 
 function CONFIG() {
 DOCKER_DIR="/data/go-chatgpt-api"
